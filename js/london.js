@@ -77,11 +77,20 @@ function legend(color, title = "Flow volume", tickFormat = null) {
     canvas.width = n;
     canvas.height = 1;
 
-    // 修改颜色渐变生成方式
+    // 修改颜色渐变生成方式，使用对数映射
     for (let i = 0; i < n; ++i) {
         const t = i / (n - 1);
-        // 直接使用颜色的插���器函数
-        context.fillStyle = color.interpolator()(t);
+        // 使���对数映射获取当前值
+        const value = Math.exp(
+            d3.scaleLinear()
+            .domain([0, 1])
+            .range([Math.log(color.domain()[0]), Math.log(color.domain()[1])])(t)
+        );
+
+        // 应用对数变换和颜色映射
+        const logMapped = logTransform(value, color.domain()[0], color.domain()[1]);
+        const colorValue = remap(logMapped, 0, 1, 0.2, 0.9);
+        context.fillStyle = d3.interpolateBuPu(colorValue);
         context.fillRect(i, 0, 1, 1);
     }
 
@@ -241,6 +250,16 @@ function createVisualization(lsoas_21, flowsMap, namesMap, areaFlowTotals, lsoa_
                 return d3.interpolateBuPu(colorValue);
             };
 
+            // 创建新的颜色比例尺用于图例
+            const legendScale = d3.scaleSequential()
+                .domain([minFlow, maxFlow])
+                .interpolator(colorInterpolator);
+
+            // 更新图例
+            d3.select("#legend").select("svg").remove();
+            legend(legendScale, "Flow volume with selected LSOA",
+                d => d >= 1000 ? `${(d/1000).toFixed(1)}k` : d.toFixed(0));
+
             // 更新所有LSOA区域的颜色
             svg.select(".lsoas")
                 .selectAll("path")
@@ -250,20 +269,11 @@ function createVisualization(lsoas_21, flowsMap, namesMap, areaFlowTotals, lsoa_
 
                     if (allFlows.has(areaId)) {
                         const flowData = allFlows.get(areaId);
+                        // 使用相同的颜色插值器函数
                         return colorInterpolator(flowData.flow);
                     }
                     return defaultColor;
                 });
-
-            // 创建新的颜色比例尺用于图��
-            const legendScale = d3.scaleSequential()
-                .domain([minFlow, maxFlow])
-                .interpolator(colorInterpolator);
-
-            // 更新图例
-            d3.select("#legend").select("svg").remove();
-            legend(legendScale, "Flow volume with selected LSOA",
-                d => d >= 1000 ? `${(d/1000).toFixed(1)}k` : d.toFixed(0));
 
             // 更新信息框
             updateLocationInfo({
@@ -302,7 +312,7 @@ function createVisualization(lsoas_21, flowsMap, namesMap, areaFlowTotals, lsoa_
                     .lower();
                 updateVisualization(null);
             } else {
-                // 选中新区域
+                // 选择新区域
                 if (selectedCounty) {
                     d3.select(selectedCounty)
                         .attr("stroke", null)
