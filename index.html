@@ -4,42 +4,25 @@
 <head>
     <title>Connected Places Visualization</title>
     <!-- 加载 D3.js -->
-    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <!-- 加载 TopoJSON -->
     <script src="https://unpkg.com/topojson-client@3"></script>
-    <style>
-        #map {
-            width: 1260px;
-            height: 550px;
-            margin: 0 auto;
-        }
-        
-        .legend {
-            position: absolute;
-            bottom: 30px;
-            right: 30px;
-            display: flex;
-            align-items: center;
-            font-family: sans-serif;
-            font-size: 12px;
-        }
-        
-        .legend-gradient {
-            width: 200px;
-            height: 20px;
-            margin: 0 10px;
-        }
-    </style>
+    <!-- 添加 CSS 文件引用 -->
+    <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
-    <div id="info-box">
-        <h3>Location Details</h3>
-        <p id="location-info"></p>
+    <div id="location-info" class="floating-info">
+        <div class="info-header">Location Details</div>
+        <div class="info-content">
+            <div class="info-id">&nbsp;</div>
+            <div class="info-name">Hover over a region</div>
+            <div class="info-data">to see flow details</div>
+        </div>
     </div>
     <div id="map"></div>
     <div id="legend"></div>
-    <script src="js/main.js"></script>
+    <script src="js/london.js"></script>
 </body>
 
 </html>

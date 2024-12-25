@@ -160,7 +160,8 @@ ${data ? data[0].toFixed(1) : 'N/A'} deaths per 100,000 people`;
 async function init() {
     // 加载数据
     const topology = (await d3.json("https://gist.githubusercontent.com/mbostock/df1b792d76fcb748056ff94b912e4bb8/raw/b1da4894cfb1e56a24129c27b39aa957d7f0c165/topology.json")).topology;
-    const states = topojson.mesh(topology, topology.objects.states, (a, b) => a !== b);
+    const states = topojson.mesh;
+    (topology, topology.objects.states, (a, b) => a !== b)
     const counties = topojson.feature(topology, topology.objects.counties).features;
 
     const { data } = await d3.json("https://gist.githubusercontent.com/mbostock/df1b792d76fcb748056ff94b912e4bb8/raw/b1da4894cfb1e56a24129c27b39aa957d7f0c165/deaths.json");

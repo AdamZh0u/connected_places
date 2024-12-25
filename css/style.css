@@ -4,12 +4,12 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+    position: relative;
 }
 
 #map {
-    width: 960px;
-    height: 600px;
-    margin: 0;
+    width: 1260px;
+    height: 900px;
     position: relative;
 }
 
@@ -23,47 +23,81 @@ body {
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
-#info-box {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: rgba(255, 255, 255, 0.9);
-    padding: 10px;
+.floating-info {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #ccc;
     border-radius: 4px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-    min-width: 180px;
+    padding: 0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    min-width: 200px;
+    z-index: 1000;
+    cursor: move;
 }
 
-#info-box h3 {
-    margin: 0 0 8px 0;
-    font-size: 14px;
-    color: #333;
+.info-header {
+    background: #f5f5f5;
+    padding: 8px 12px;
+    border-bottom: 1px solid #ddd;
+    font-weight: bold;
+    border-radius: 4px 4px 0 0;
+    user-select: none;
 }
 
-#location-info {
-    margin: 0;
-    font-size: 12px;
-    color: #666;
-    line-height: 1.4;
-}
-
-.info-id,
-.info-name,
-.info-data {
-    min-height: 16px;
-    margin-bottom: 4px;
+.info-content {
+    padding: 12px;
 }
 
 .info-id {
-    color: #888;
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 4px;
 }
 
 .info-name {
+    font-weight: bold;
+    margin-bottom: 4px;
     color: #333;
-    font-weight: 500;
 }
 
 .info-data {
+    color: #444;
+}
+
+.flow-summary {
+    margin-top: 8px;
+}
+
+.flow-summary>div {
+    margin-bottom: 4px;
+}
+
+.flow-summary .label {
     color: #666;
-    margin-bottom: 0;
+    display: inline-block;
+    width: 85px;
+}
+
+.flow-summary .value {
+    font-weight: bold;
+    margin-right: 4px;
+}
+
+.flow-summary .count {
+    color: #888;
+    font-size: 0.9em;
+}
+
+.flow-summary .net-flow .value {
+    color: #666;
+}
+
+.flow-summary .net-flow .value.positive {
+    color: #2ecc71;
+}
+
+.flow-summary .net-flow .value.negative {
+    color: #e74c3c;
 }
