@@ -364,7 +364,7 @@ function createVisualization(lsoas_21, flowsMap, namesMap, areaFlowTotals, lsoa_
 // 加载数据
 async function loadData() {
     // 加载 LSOA 地理数据
-    const geojson = await d3.json("data/lsoa_london_2021.geojson");
+    const geojson = await d3.json("data/lsoa_london_2021.min.geojson");
     const lsoas_21 = geojson.features;
 
     // 加载 MSOA 地理数据
