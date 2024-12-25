@@ -1,35 +1,69 @@
-#visualization {
-    width: 100%;
-    height: 100vh;
+body {
+    margin: 0;
+    padding: 20px;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
 }
 
-svg {
-    background-color: #f8f9fa;
+#map {
+    width: 960px;
+    height: 600px;
+    margin: 0;
+    position: relative;
 }
 
-.legend text {
+#legend {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 8px;
+    border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+#info-box {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    min-width: 180px;
+}
+
+#info-box h3 {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    color: #333;
+}
+
+#location-info {
+    margin: 0;
     font-size: 12px;
-    fill: #666;
+    color: #666;
+    line-height: 1.4;
 }
 
-path {
-    transition: fill 0.3s;
+.info-id,
+.info-name,
+.info-data {
+    min-height: 16px;
+    margin-bottom: 4px;
 }
 
-path:hover {
-    fill: #f0f0f0;
-    cursor: pointer;
+.info-id {
+    color: #888;
 }
 
-.caption {
-    font-family: sans-serif;
-    font-size: 10px;
+.info-name {
+    color: #333;
+    font-weight: 500;
 }
 
-.tick text {
-    font-family: sans-serif;
-    font-size: 10px;
+.info-data {
+    color: #666;
+    margin-bottom: 0;
 }

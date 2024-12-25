@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Connected Places Visualization</title>
     <!-- 加载 D3.js -->
@@ -9,9 +10,10 @@
     <style>
         #map {
             width: 1260px;
-            height: 900px;
+            height: 550px;
             margin: 0 auto;
         }
+        
         .legend {
             position: absolute;
             bottom: 30px;
@@ -21,6 +23,7 @@
             font-family: sans-serif;
             font-size: 12px;
         }
+        
         .legend-gradient {
             width: 200px;
             height: 20px;
@@ -28,21 +31,15 @@
         }
     </style>
 </head>
+
 <body>
+    <div id="info-box">
+        <h3>Location Details</h3>
+        <p id="location-info"></p>
+    </div>
     <div id="map"></div>
-    
-    <script type="module">
-        import { initVisualization, getGlobalDeaths } from './js/demo2.js';
-        
-        // 初始化可视化
-        initVisualization()
-            .then(deaths => {
-                // 将 globalDeaths 添加到 window 对象
-                window.globalDeaths = deaths;
-                console.log('Visualization initialized');
-                console.log('Global deaths data:', window.globalDeaths);
-            })
-            .catch(console.error);
-    </script>
+    <div id="legend"></div>
+    <script src="js/main.js"></script>
 </body>
+
 </html>
