@@ -1,0 +1,11 @@
+{
+    "nodes": [
+        {"name": "China", "group": 1},
+        {"name": "Northern Cyprus", "group": 2},
+        {"name": "Czech Republic", "group": 3}
+    ],
+    "links": [
+        {"source": "China", "target": "Northern Cyprus", "value": 1},
+        {"source": "China", "target": "Czech Republic", "value": 1}
+    ]
+}
