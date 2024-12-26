@@ -236,8 +236,8 @@ function createVisualization(
     flows,
     msoa_21
 ) {
-    const width = 1260;
-    const height = 900;
+    const width = 1350;
+    const height = 960;
 
     const svg = d3
         .select("#map")
@@ -534,7 +534,7 @@ function createVisualization(
         });
 
     // 绘制MSOA边界
-    svg
+    const msoaBoundaries = svg
         .append("g")
         .attr("class", "msoa-boundaries")
         .selectAll("path")
@@ -546,6 +546,15 @@ function createVisualization(
         .attr("stroke-width", 1.5)
         .attr("stroke-opacity", 0.8)
         .attr("d", path);
+
+    // 添加控制MSOA边界显示的函数
+    function toggleMSOABoundaries(visible) {
+        svg.select(".msoa-boundaries")
+            .style("display", visible ? "block" : "none");
+    }
+
+    // 将toggleMSOABoundaries函数添加到window对象，使其可以从外部访问
+    window.toggleMSOABoundaries = toggleMSOABoundaries;
 }
 
 // 加载数据
@@ -667,14 +676,68 @@ function initDraggable(element, handle) {
 }
 
 function initDraggableElements() {
-    // 初始化信息框拖动
     const info = document.getElementById("location-info");
     const infoHeader = info.querySelector(".info-header");
-    initDraggable(info, infoHeader);
-
-    // 初始化OSM地图窗口拖动
     const osmContainer = document.getElementById("osm-map-container");
     const osmHeader = osmContainer.querySelector(".osm-header");
+
+    // Modify the dragging logic to stay within sidebar bounds
+    function initDraggable(element, handle) {
+        let isDragging = false;
+        let currentX;
+        let currentY;
+        let initialX;
+        let initialY;
+        let xOffset = 0;
+        let yOffset = 0;
+
+        handle.addEventListener("mousedown", dragStart);
+        document.addEventListener("mousemove", drag);
+        document.addEventListener("mouseup", dragEnd);
+
+        function dragStart(e) {
+            initialX = e.clientX - xOffset;
+            initialY = e.clientY - yOffset;
+
+            if (e.target === handle) {
+                isDragging = true;
+            }
+        }
+
+        function drag(e) {
+            if (isDragging) {
+                e.preventDefault();
+
+                const sidebar = document.querySelector('.sidebar');
+                const sidebarRect = sidebar.getBoundingClientRect();
+                const elementRect = element.getBoundingClientRect();
+
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+
+                // Constrain movement within sidebar
+                currentX = Math.max(0, Math.min(currentX, sidebarRect.width - elementRect.width));
+                currentY = Math.max(0, Math.min(currentY, sidebarRect.height - elementRect.height));
+
+                xOffset = currentX;
+                yOffset = currentY;
+
+                setTranslate(currentX, currentY, element);
+            }
+        }
+
+        function setTranslate(xPos, yPos, el) {
+            el.style.transform = `translate(${xPos}px, ${yPos}px)`;
+        }
+
+        function dragEnd() {
+            initialX = currentX;
+            initialY = currentY;
+            isDragging = false;
+        }
+    }
+
+    initDraggable(info, infoHeader);
     initDraggable(osmContainer, osmHeader);
 }
 
@@ -769,6 +832,94 @@ function updateOSMView(boundingInfo) {
         console.error("Error updating OSM view:", error);
     }
 }
+
+function initSidebar() {
+    const sidebar = document.createElement('div');
+    sidebar.className = 'sidebar';
+
+    // 添加MSOA控制开关
+    const msoaControl = document.createElement('div');
+    msoaControl.className = 'msoa-control';
+    msoaControl.innerHTML = `
+        <label class="toggle-switch">
+            <input type="checkbox" id="msoa-toggle" checked>
+            <span class="toggle-slider"></span>
+            <span class="toggle-label">Show MSOA Boundaries</span>
+        </label>
+    `;
+
+    // Add resizer
+    const resizer = document.createElement('div');
+    resizer.className = 'sidebar-resizer';
+
+    // Add toggle button
+    const toggleBtn = document.createElement('div');
+    toggleBtn.className = 'sidebar-toggle';
+
+    sidebar.appendChild(msoaControl);
+    sidebar.appendChild(resizer);
+    sidebar.appendChild(toggleBtn);
+
+    // Move existing elements into sidebar
+    const locationInfo = document.getElementById('location-info');
+    const osmContainer = document.getElementById('osm-map-container');
+    sidebar.appendChild(locationInfo);
+    sidebar.appendChild(osmContainer);
+
+    document.body.appendChild(sidebar);
+
+    // 添加MSOA开关事件监听器
+    const msoaToggle = document.getElementById('msoa-toggle');
+    msoaToggle.addEventListener('change', (e) => {
+        if (window.toggleMSOABoundaries) {
+            window.toggleMSOABoundaries(e.target.checked);
+        }
+    });
+
+    // Initialize sidebar resizing
+    let isResizing = false;
+    let lastDownX = 0;
+
+    resizer.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        lastDownX = e.clientX;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+
+        const delta = e.clientX - lastDownX;
+        lastDownX = e.clientX;
+
+        const newWidth = sidebar.offsetWidth + delta;
+        if (newWidth > 300 && newWidth < window.innerWidth * 0.5) {
+            sidebar.style.width = `${newWidth}px`;
+            const map = document.getElementById('map');
+            map.style.left = `${newWidth}px`;
+            map.style.width = `calc(100% - ${newWidth}px)`;
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        isResizing = false;
+    });
+
+    // Initialize sidebar toggle
+    toggleBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        const map = document.getElementById('map');
+        map.classList.toggle('sidebar-collapsed');
+
+        // Trigger map resize event for proper rendering
+        setTimeout(() => {
+            window.dispatchEvent(new Event('resize'));
+            if (osmMap) {
+                osmMap.invalidateSize();
+            }
+        }, 300);
+    });
+}
+
 async function init() {
     const { lsoas_21, flows, areaFlowTotals, lsoa_connections, msoa_21 } =
     await loadData();
@@ -799,8 +950,7 @@ async function init() {
     );
 
     initDraggableElements();
-
-    // 初始化OSM地图
+    initSidebar();
     initOSMMap();
 }
 
