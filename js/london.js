@@ -5,6 +5,19 @@ let selectedCounty = null;
 let isLocked = false;
 let osmMap = null; // 新增：用于存储OSM地图实例
 
+// 在文件开头添加EPSG:27700的定义
+const proj27700 = "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs";
+
+// 初始化投影转换
+proj4.defs("EPSG:27700", proj27700);
+
+// 创建转换函数
+function convertToWGS84(x, y) {
+    // 从EPSG:27700转换到WGS84
+    const [lon, lat] = proj4("EPSG:27700", "EPSG:4326", [x, y]);
+    return [lat, lon]; // 返回[lat, lon]格式，适用于Leaflet
+}
+
 // 添加 ramp 函数
 function ramp(color, n = 256) {
     const canvas = document.createElement("canvas");
@@ -408,6 +421,44 @@ function createVisualization(
             const feature = d3.select(this).datum();
             const clickedId = feature.properties.lsoa21cd;
 
+            // 从feature的geometry中直接获取坐标
+            const coordinates = feature.geometry.coordinates[0];
+
+            // 转换所有坐标点到WGS84
+            const convertedCoords = coordinates.map(coord => convertToWGS84(coord[0], coord[1]));
+
+            // 计算转换后的地理边界框
+            const lats = convertedCoords.map(coord => coord[0]); // 纬度
+            const lons = convertedCoords.map(coord => coord[1]); // 经度
+
+            const geoBounds = {
+                southwest: [
+                    Math.min(...lats), // 最小纬度
+                    Math.min(...lons) // 最小经度
+                ],
+                northeast: [
+                    Math.max(...lats), // 最大纬度
+                    Math.max(...lons) // 最大经度
+                ]
+            };
+
+            // 获取SVG边界框
+            const svgBounds = path.bounds(feature);
+
+            // 创建包含边界框信息的对象
+            const boundingInfo = {
+                feature: feature,
+                bounds: {
+                    geoBounds: geoBounds,
+                    svgBounds: {
+                        topLeft: svgBounds[0],
+                        bottomRight: svgBounds[1],
+                        width: svgBounds[1][0] - svgBounds[0][0],
+                        height: svgBounds[1][1] - svgBounds[0][1]
+                    }
+                }
+            };
+
             if (selectedCounty === this) {
                 // 取消选中，解除锁定
                 selectedCounty = null;
@@ -427,7 +478,7 @@ function createVisualization(
                 isLocked = true;
                 d3.select(this).attr("stroke", "#000").attr("stroke-width", 2).raise();
                 updateVisualization(clickedId, true);
-                updateOSMView(feature); // 更新OSM地图视图
+                updateOSMView(boundingInfo); // 传递包含边界框信息的对象
             }
         })
         .on("mouseover", function(event, d) {
@@ -650,30 +701,74 @@ function initOSMMap() {
 }
 
 // 添加更新OSM地图视图的函数
-function updateOSMView(feature) {
-    if (!feature) {
+function updateOSMView(boundingInfo) {
+    if (!boundingInfo) {
         document.getElementById('osm-map-container').style.display = 'none';
         return;
     }
 
-    // 显示地图容器
-    document.getElementById('osm-map-container').style.display = 'block';
+    try {
+        // 显示地图容器
+        const container = document.getElementById('osm-map-container');
+        container.style.display = 'block';
 
-    // 计算选中区域的中心点和边界
-    const bounds = path.bounds(feature);
-    const center = path.centroid(feature);
+        // 确保地图实例存在
+        if (!osmMap) {
+            initOSMMap();
+        }
 
-    // 将D3的投影坐标转换为地理坐标
-    const projection = path.projection();
-    const [lon, lat] = projection.invert(center);
+        const { southwest, northeast } = boundingInfo.bounds.geoBounds;
 
-    // 设置地图视图
-    osmMap.setView([lat, lon], 15);
+        // 创建 Leaflet 边界
+        const leafletBounds = L.latLngBounds(southwest, northeast);
 
-    // 强制重新计算地图大小
-    osmMap.invalidateSize();
+        // 计算边界框的中心点
+        const center = leafletBounds.getCenter();
+
+        // 计算适当的缩放级别
+        // 根据边界框的大小来确定缩放级别
+        const latDiff = Math.abs(northeast[0] - southwest[0]);
+        const lonDiff = Math.abs(northeast[1] - southwest[1]);
+        const maxDiff = Math.max(latDiff, lonDiff);
+
+        // 根据边界框大小计算合适的缩放级别
+        // 这个公式可以根据需要调整
+        let zoom = Math.floor(14 - Math.log2(maxDiff * 111)); // 111km 是每度纬度的近似距离
+        zoom = Math.min(Math.max(zoom, 12), 16); // 限制缩放级别在12-16之间
+
+        // 设置地图视图
+        setTimeout(() => {
+            osmMap.invalidateSize();
+
+            // 首先设置中心点和缩放级别
+            osmMap.setView(center, zoom, {
+                animate: false
+            });
+
+            // 然后确保边界框完全可见
+            osmMap.fitBounds(leafletBounds, {
+                padding: [50, 50], // 增加padding以确保边界完全可见
+                maxZoom: zoom, // 使用计算出的缩放级别
+                animate: true
+            });
+
+            // 添加边界框矩形
+            if (window.currentBoundingBox) {
+                osmMap.removeLayer(window.currentBoundingBox);
+            }
+            window.currentBoundingBox = L.rectangle(leafletBounds, {
+                color: "#ff0000",
+                weight: 1,
+                fillOpacity: 0.1
+            }).addTo(osmMap);
+
+            console.log("OSM View updated with bounds:", boundingInfo.bounds);
+        }, 100);
+
+    } catch (error) {
+        console.error("Error updating OSM view:", error);
+    }
 }
-
 async function init() {
     const { lsoas_21, flows, areaFlowTotals, lsoa_connections, msoa_21 } =
     await loadData();
