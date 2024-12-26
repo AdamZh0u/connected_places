@@ -9,6 +9,8 @@
     <script src="https://unpkg.com/topojson-client@3"></script>
     <!-- 添加 CSS 文件引用 -->
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 </head>
 
 <body>
@@ -22,8 +24,12 @@
     </div>
     <div id="map"></div>
     <div id="legend"></div>
+    <!-- <script src="js/d3test.js"></script> -->
     <script src="js/london.js"></script>
-    <script src="js/d3test.js"></script>
+    <div id="osm-map-container">
+        <div class="osm-header">OpenStreetMap View</div>
+        <div id="osm-map"></div>
+    </div>
 </body>
 
 </html>

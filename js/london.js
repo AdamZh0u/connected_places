@@ -2,6 +2,8 @@
 let path;
 let names;
 let selectedCounty = null;
+let isLocked = false;
+let osmMap = null; // 新增：用于存储OSM地图实例
 
 // 添加 ramp 函数
 function ramp(color, n = 256) {
@@ -84,7 +86,7 @@ function legend(color, title = "Flow volume", tickFormat = null) {
     // 修改颜色渐变生成方式，使用对数映射
     for (let i = 0; i < n; ++i) {
         const t = i / (n - 1);
-        // 使���对数映射获取当前值
+        // 使用对数映射获取当前值
         const value = Math.exp(
             d3
             .scaleLinear()
@@ -329,6 +331,50 @@ function createVisualization(
         }
     }
 
+    // 添加新的函数来显示两个区域之间的流量信息
+    function updateConnectionInfo(selectedId, hoverId, lsoa_connections, namesMap) {
+        const selectedData = lsoa_connections.get(selectedId);
+        const hoverData = lsoa_connections.get(hoverId);
+
+        // 获取两个区域之间的流量
+        const outflowToHover = selectedData.outflows.get(hoverId) || 0;
+        const inflowFromHover = selectedData.inflows.get(hoverId) || 0;
+
+        // 格式化数字
+        const formatNumber = (num) => {
+            if (num >= 1000) {
+                return `${(num / 1000).toFixed(1)}k`;
+            }
+            return num.toFixed(0);
+        };
+
+        d3.select("#location-info .info-content").html(`
+            <div class="info-id">Selected: ${selectedId}</div>
+            <div class="info-name">${namesMap.get(selectedId)}</div>
+            <div class="connection-info">
+                <div class="connected-area">
+                    <div class="info-id">Connected to: ${hoverId}</div>
+                    <div class="info-name">${namesMap.get(hoverId)}</div>
+                </div>
+                <div class="flow-details">
+                    <div class="flow-item">
+                        <span class="label">Outflow:</span>
+                        <span class="value">${formatNumber(outflowToHover)}</span>
+                    </div>
+                    <div class="flow-item">
+                        <span class="label">Inflow:</span>
+                        <span class="value">${formatNumber(inflowFromHover)}</span>
+                    </div>
+                    <div class="net-flow">
+                        <span class="label">Net Flow:</span>
+                        <span class="value ${inflowFromHover - outflowToHover >= 0 ? "positive" : "negative"}">
+                            ${inflowFromHover - outflowToHover >= 0 ? "+" : ""}${formatNumber(inflowFromHover - outflowToHover)}
+                        </span>
+                    </div>
+                </div>
+            </div>`);
+    }
+
     // 绘制LSOA区域
     svg
         .append("g")
@@ -342,17 +388,35 @@ function createVisualization(
             return total ? color(total) : defaultColor;
         })
         .attr("d", path)
+        .on("contextmenu", function(event, d) {
+            // 阻止默认的右键菜单
+            event.preventDefault();
+
+            // 如果当前有选中的区域，取消选中
+            if (selectedCounty) {
+                d3.select(selectedCounty)
+                    .attr("stroke", null)
+                    .attr("stroke-width", null)
+                    .lower();
+                selectedCounty = null;
+                isLocked = false;
+                updateVisualization(null);
+                updateOSMView(null); // 隐藏OSM地图
+            }
+        })
         .on("click", function(event, d) {
             const feature = d3.select(this).datum();
             const clickedId = feature.properties.lsoa21cd;
 
             if (selectedCounty === this) {
-                // 取消选中
+                // 取消选中，解除锁定
                 selectedCounty = null;
+                isLocked = false;
                 d3.select(this).attr("stroke", null).attr("stroke-width", null).lower();
                 updateVisualization(null);
+                updateOSMView(null); // 隐藏OSM地图
             } else {
-                // 选择新区域
+                // 选择新区域，启用锁定
                 if (selectedCounty) {
                     d3.select(selectedCounty)
                         .attr("stroke", null)
@@ -360,15 +424,31 @@ function createVisualization(
                         .lower();
                 }
                 selectedCounty = this;
+                isLocked = true;
                 d3.select(this).attr("stroke", "#000").attr("stroke-width", 2).raise();
                 updateVisualization(clickedId, true);
+                updateOSMView(feature); // 更新OSM地图视图
             }
         })
         .on("mouseover", function(event, d) {
-            if (this !== selectedCounty) {
-                const feature = d3.select(this).datum();
-                const locationId = feature.properties.lsoa21cd;
+            const feature = d3.select(this).datum();
+            const locationId = feature.properties.lsoa21cd;
 
+            if (isLocked) {
+                // 在锁定状态下，显示与选中区域的连接信息
+                if (this !== selectedCounty) {
+                    const selectedFeature = d3.select(selectedCounty).datum();
+                    const selectedId = selectedFeature.properties.lsoa21cd;
+                    updateConnectionInfo(selectedId, locationId, lsoa_connections, namesMap);
+
+                    // 高亮显示当前悬停的区域
+                    d3.select(this)
+                        .attr("stroke", "#000")
+                        .attr("stroke-width", 1.5)
+                        .raise();
+                }
+            } else if (this !== selectedCounty) {
+                // 未锁定状态下的原有行为
                 d3.select(this)
                     .attr("stroke", "#000")
                     .attr("stroke-width", 1.5)
@@ -378,7 +458,18 @@ function createVisualization(
             }
         })
         .on("mouseout", function(event, d) {
-            if (this !== selectedCounty) {
+            if (isLocked) {
+                if (this !== selectedCounty) {
+                    // 移除高亮显示
+                    d3.select(this).attr("stroke", null).lower();
+
+                    // 恢复显示选中区域的信息
+                    const selectedFeature = d3.select(selectedCounty).datum();
+                    const selectedId = selectedFeature.properties.lsoa21cd;
+                    updateVisualization(selectedId, true);
+                }
+            } else if (!isLocked && this !== selectedCounty) {
+                // 未锁定状态下的原有行为
                 d3.select(this).attr("stroke", null).lower();
 
                 if (selectedCounty) {
@@ -478,6 +569,111 @@ async function loadData() {
     };
 }
 
+function initDraggable(element, handle) {
+    let isDragging = false;
+    let currentX;
+    let currentY;
+    let initialX;
+    let initialY;
+    let xOffset = 0;
+    let yOffset = 0;
+
+    handle.addEventListener("mousedown", dragStart);
+    document.addEventListener("mousemove", drag);
+    document.addEventListener("mouseup", dragEnd);
+
+    function dragStart(e) {
+        initialX = e.clientX - xOffset;
+        initialY = e.clientY - yOffset;
+
+        if (e.target === handle) {
+            isDragging = true;
+        }
+    }
+
+    function drag(e) {
+        if (isDragging) {
+            e.preventDefault();
+            currentX = e.clientX - initialX;
+            currentY = e.clientY - initialY;
+
+            xOffset = currentX;
+            yOffset = currentY;
+
+            setTranslate(currentX, currentY, element);
+        }
+    }
+
+    function setTranslate(xPos, yPos, el) {
+        el.style.transform = `translate(${xPos}px, ${yPos}px)`;
+    }
+
+    function dragEnd(e) {
+        initialX = currentX;
+        initialY = currentY;
+        isDragging = false;
+    }
+}
+
+function initDraggableElements() {
+    // 初始化信息框拖动
+    const info = document.getElementById("location-info");
+    const infoHeader = info.querySelector(".info-header");
+    initDraggable(info, infoHeader);
+
+    // 初始化OSM地图窗口拖动
+    const osmContainer = document.getElementById("osm-map-container");
+    const osmHeader = osmContainer.querySelector(".osm-header");
+    initDraggable(osmContainer, osmHeader);
+}
+
+// 在 initOSMMap 函数中初始化OSM地图
+function initOSMMap() {
+    // 如果地图已存在，先移除
+    if (osmMap) {
+        osmMap.remove();
+    }
+
+    // 创建地图实例
+    osmMap = L.map('osm-map', {
+        zoomControl: false, // 禁用默认缩放控件
+        attributionControl: false // 禁用归属信息
+    });
+
+    // 添加OSM图层
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+    }).addTo(osmMap);
+
+    // 初始化时隐藏地图容器
+    document.getElementById('osm-map-container').style.display = 'none';
+}
+
+// 添加更新OSM地图视图的函数
+function updateOSMView(feature) {
+    if (!feature) {
+        document.getElementById('osm-map-container').style.display = 'none';
+        return;
+    }
+
+    // 显示地图容器
+    document.getElementById('osm-map-container').style.display = 'block';
+
+    // 计算选中区域的中心点和边界
+    const bounds = path.bounds(feature);
+    const center = path.centroid(feature);
+
+    // 将D3的投影坐标转换为地理坐标
+    const projection = path.projection();
+    const [lon, lat] = projection.invert(center);
+
+    // 设置地图视图
+    osmMap.setView([lat, lon], 15);
+
+    // 强制重新计算地图大小
+    osmMap.invalidateSize();
+}
+
 async function init() {
     const { lsoas_21, flows, areaFlowTotals, lsoa_connections, msoa_21 } =
     await loadData();
@@ -507,54 +703,10 @@ async function init() {
         msoa_21
     );
 
-    function initDraggableInfo() {
-        const info = document.getElementById("location-info");
-        let isDragging = false;
-        let currentX;
-        let currentY;
-        let initialX;
-        let initialY;
-        let xOffset = 0;
-        let yOffset = 0;
+    initDraggableElements();
 
-        info.querySelector(".info-header").addEventListener("mousedown", dragStart);
-        document.addEventListener("mousemove", drag);
-        document.addEventListener("mouseup", dragEnd);
-
-        function dragStart(e) {
-            initialX = e.clientX - xOffset;
-            initialY = e.clientY - yOffset;
-
-            if (e.target === info.querySelector(".info-header")) {
-                isDragging = true;
-            }
-        }
-
-        function drag(e) {
-            if (isDragging) {
-                e.preventDefault();
-                currentX = e.clientX - initialX;
-                currentY = e.clientY - initialY;
-
-                xOffset = currentX;
-                yOffset = currentY;
-
-                setTranslate(currentX, currentY, info);
-            }
-        }
-
-        function setTranslate(xPos, yPos, el) {
-            el.style.transform = `translate(${xPos}px, ${yPos}px)`;
-        }
-
-        function dragEnd(e) {
-            initialX = currentX;
-            initialY = currentY;
-            isDragging = false;
-        }
-    }
-
-    initDraggableInfo();
+    // 初始化OSM地图
+    initOSMMap();
 }
 
 // 启动应用
