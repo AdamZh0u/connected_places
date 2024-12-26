@@ -559,7 +559,7 @@ function createVisualization(
 
 // 加载数据
 async function loadData() {
-    // 加载 LSOA 地理数据
+    // ��载 LSOA 地理数据
     const geojson = await d3.json("data/lsoa_london_2021.min.geojson");
     const lsoas_21 = geojson.features;
 
@@ -825,7 +825,7 @@ function updateOSMView(boundingInfo) {
                 fillOpacity: 0.1
             }).addTo(osmMap);
 
-            console.log("OSM View updated with bounds:", boundingInfo.bounds);
+            // console.log("OSM View updated with bounds:", boundingInfo.bounds);
         }, 100);
 
     } catch (error) {
@@ -836,6 +836,21 @@ function updateOSMView(boundingInfo) {
 function initSidebar() {
     const sidebar = document.createElement('div');
     sidebar.className = 'sidebar';
+
+    // 添加操作说明框
+    const instructions = document.createElement('div');
+    instructions.className = 'instructions';
+    instructions.innerHTML = `
+        <div class="instructions-header">Instructions</div>
+        <div class="instructions-content">
+            <ul>
+                <li>Hover over an area to view its details</li>
+                <li><span class="key-instruction">Left Click</span> Select an area to view its flow relationships</li>
+                <li>After selecting an area, hover over other areas to see flow relationships between them</li>
+                <li><span class="key-instruction">Right Click</span> Deselect the current area</li>
+            </ul>
+        </div>
+    `;
 
     // 添加MSOA控制开关
     const msoaControl = document.createElement('div');
@@ -856,6 +871,7 @@ function initSidebar() {
     const toggleBtn = document.createElement('div');
     toggleBtn.className = 'sidebar-toggle';
 
+    sidebar.appendChild(instructions);
     sidebar.appendChild(msoaControl);
     sidebar.appendChild(resizer);
     sidebar.appendChild(toggleBtn);
