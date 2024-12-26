@@ -401,22 +401,6 @@ function createVisualization(
             return total ? color(total) : defaultColor;
         })
         .attr("d", path)
-        .on("contextmenu", function(event, d) {
-            // 阻止默认的右键菜单
-            event.preventDefault();
-
-            // 如果当前有选中的区域，取消选中
-            if (selectedCounty) {
-                d3.select(selectedCounty)
-                    .attr("stroke", null)
-                    .attr("stroke-width", null)
-                    .lower();
-                selectedCounty = null;
-                isLocked = false;
-                updateVisualization(null);
-                updateOSMView(null); // 隐藏OSM地图
-            }
-        })
         .on("click", function(event, d) {
             const feature = d3.select(this).datum();
             const clickedId = feature.properties.lsoa21cd;
@@ -482,6 +466,9 @@ function createVisualization(
             }
         })
         .on("mouseover", function(event, d) {
+            // 防止事件冒泡，确保不会触发地图容器的事件
+            event.stopPropagation();
+
             const feature = d3.select(this).datum();
             const locationId = feature.properties.lsoa21cd;
 
@@ -509,6 +496,9 @@ function createVisualization(
             }
         })
         .on("mouseout", function(event, d) {
+            // 防止事件冒泡，确保不会触发地图容器的事件
+            event.stopPropagation();
+
             if (isLocked) {
                 if (this !== selectedCounty) {
                     // 移除高亮显示
@@ -555,11 +545,37 @@ function createVisualization(
 
     // 将toggleMSOABoundaries函数添加到window对象，使其可以从外部访问
     window.toggleMSOABoundaries = toggleMSOABoundaries;
+
+    // 在绘制LSOA区域���代码后添加
+    const mapContainer = d3.select("#map");
+    mapContainer.on("dblclick", function(event) {
+        // 不管是否有选中状态，都响应双击事件
+        // 重置所有区域的颜色到初始状态
+        svg.select(".lsoas")
+            .selectAll("path")
+            .attr("fill", (d) => {
+                const total = areaFlowTotals.get(d.properties.lsoa21cd);
+                return total ? color(total) : defaultColor;
+            })
+            .attr("stroke", null)
+            .attr("stroke-width", null)
+            .lower();
+
+        // 重置选中状态
+        selectedCounty = null;
+        isLocked = false;
+
+        // 重置信息面板
+        updateLocationInfo(null);
+
+        // 隐藏OSM地图
+        updateOSMView(null);
+    });
 }
 
 // 加载数据
 async function loadData() {
-    // ��载 LSOA 地理数据
+    // 载 LSOA 地理数据
     const geojson = await d3.json("data/lsoa_london_2021.min.geojson");
     const lsoas_21 = geojson.features;
 
@@ -847,7 +863,7 @@ function initSidebar() {
                 <li>Hover over an area to view its details</li>
                 <li><span class="key-instruction">Left Click</span> Select an area to view its flow relationships</li>
                 <li>After selecting an area, hover over other areas to see flow relationships between them</li>
-                <li><span class="key-instruction">Right Click</span> Deselect the current area</li>
+                <li><span class="key-instruction">Double Click</span> Deselect the current area and reset the view</li>
             </ul>
         </div>
     `;
@@ -856,11 +872,16 @@ function initSidebar() {
     const msoaControl = document.createElement('div');
     msoaControl.className = 'msoa-control';
     msoaControl.innerHTML = `
-        <label class="toggle-switch">
-            <input type="checkbox" id="msoa-toggle" checked>
-            <span class="toggle-slider"></span>
-            <span class="toggle-label">Show MSOA Boundaries</span>
-        </label>
+        <div class="msoa-control-header">Map Settings</div>
+        <div class="msoa-control-content">
+            <div class="control-item">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="msoa-toggle" checked>
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label">Show MSOA Boundaries</span>
+                </label>
+            </div>
+        </div>
     `;
 
     // Add resizer
